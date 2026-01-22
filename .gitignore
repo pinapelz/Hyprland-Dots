@@ -1,5 +1,5 @@
-WARP.md 
-.warp.md 
+WARP.md
+.warp.md
 result
 
 # Python artifacts
@@ -41,3 +41,4 @@ htmlcov/
 .vscode/
 *.swp
 *.swo
+Copy-Logs

@@ -37,9 +37,14 @@ stop_music() {
 populate_local_music() {
   local_music=()
   filenames=()
+  declare -A seen_names
   while IFS= read -r file; do
-    local_music+=("$file")
-    filenames+=("$(basename "$file")")
+    basename_file="$(basename "$file")"
+    if [[ -z "${seen_names[$basename_file]}" ]]; then
+      local_music+=("$file")
+      filenames+=("$basename_file")
+      seen_names["$basename_file"]=1
+    fi
   done < <(find -L "$mDIR" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.wav" -o -iname "*.ogg" -o -iname "*.mp4" \))
 }
 
@@ -125,7 +130,7 @@ user_choice=$(printf "%s\n" \
   "Stop RofiBeats" \
   "Manage Music List" |
   rofi -dmenu -config "$rofi_theme_menu" \
-    -theme-str 'entry { placeholder: "🎧 RofiBeats Menu"; }')
+    -theme-str 'entry { placeholder: "Play Some Music"; }')
 
 case "$user_choice" in
 "Play from Online Stations") play_online_music ;;
