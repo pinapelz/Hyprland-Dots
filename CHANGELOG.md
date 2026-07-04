@@ -9,6 +9,10 @@
 
 ## Updated:
 
+- QuickShell overview to current version 
+  - One issue fixed is moving apps between workspaces 
+  - `overview` has not been updated in this project for a long time
+
 ## Changed:
 
 - `shadow range` changed to `2` from `3`
