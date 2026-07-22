@@ -159,7 +159,11 @@ hl.config({
 hl.config({
   cursor = {
     sync_gsettings_theme = true,
+<<<<<<< HEAD
     no_hardware_cursors =   0,
+=======
+    no_hardware_cursors =     0,
+>>>>>>> eb60d6f9 (Fixed wallpaper being reset (hopefully))
     enable_hyprcursor = true,
     warp_on_change_workspace = 2,
     no_warps = true,
