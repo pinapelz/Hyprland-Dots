@@ -29,10 +29,9 @@
   "hide-on-action": true,
   "script-fail-notify": true,
   "scripts": {
-    "notification-sound": {
-      "exec": "mpv --no-terminal $HOME/.config/swaync/notify.mp3",
-      "run-on": "receive",
-      "app-name": ".*"
+    "sound-script": {
+    "exec": "sh -c '/usr/bin/mpv --no-video --really-quiet /home/pinapelz/.config/swaync/notify.mp3 >/tmp/swaync-mpv.log 2>&1' || true",    
+    "run-on": "receive"
     }
   },
   "widgets": [
