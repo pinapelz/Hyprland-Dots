@@ -162,8 +162,8 @@ hl.config({
 <<<<<<< HEAD
     no_hardware_cursors =   0,
 =======
-    no_hardware_cursors =     0,
->>>>>>> eb60d6f9 (Fixed wallpaper being reset (hopefully))
+    no_hardware_cursors =      0,
+>>>>>>> 460ee670 (Upd: nwg-display for edit mon cfg in Kool_Quick_Settings)
     enable_hyprcursor = true,
     warp_on_change_workspace = 2,
     no_warps = true,
