@@ -1,5 +1,56 @@
 # Changelog — KoolDots
 
+## v2.3.26.1
+
+## Added:
+
+- `docs/HOWTO-Upgrade-Dotfiles.md`
+- Spanish translation: `docs/HOWTO-Upgrade-Dotfiles.es.md`
+- `nwg-dock-hyprland` that themes with wallpaper
+- LUA script `float.all.samesizze.lua`script
+  - `SUPER + CTRL + SPACE` to activate
+  - sets the sizes based on number of windows and resolution
+  - Note: Only works in LUA worklow, not Hyprlang
+- Documented `fastfetch` `config.json` on how to add graphical logo
+- `ToggleOpactiy.sh`
+
+- Selecting `zsh` now updates `.zprofile`
+
+  ```sh
+    if [ -f /etc/profile ]; then
+       source /etc/profile
+    fi
+  ```
+
+  - This should help resolve flatpak apps not showing in rofi menu
+  - Thanks to `@jfabernathy` for finding it
+
+- `docs/Keybinds.md` a layout of all the default keybinds
+- Option for event drive disable of eDP-1 on lid close
+- `kitty.conf` and `ghostty/config` are now saved to `UserConfigs` directory
+  - If file is gone or can't be read it will fall back to defaults
+- `qs-hyprview` an alternative to quickshell `overview`
+  - `CTRL-TAB` to activate
+  - Has search filter
+  - Optional layouts available
+    - Edit system keybinds to change the layout
+  - Added blur and dimming to layerrules for `qs-hyprview`
+  - Sample values for LUA `user_startup.lua` file
+- `select-hyprview-layout.sh`
+  - Runs rofi menu to select `qs-hyprview` layout
+  - Stores value in `.config/hypr/UserConfigs/hyprview-layout.conf`
+    - This prevents overwrite on updates
+
+## Fixed:
+
+- KoolDots update notifier
+  - Redid entire script from scratch
+- Toggle in/out of specialworkspace didn't work
+  - You could toggle in but not exit
+- Waybar config getting changed on each boot
+- Gestures in LUA configs
+- Fixed Quick settings not opening system keybinds file
+
 ## v2.3.26
 
 ## Added:
@@ -43,6 +94,7 @@
 
 ## Fixed:
 
+- Edit system binds resolved to wrong file
 - Returning from `game mode` didn't restore user decoration values
 - `remove master` in `master layout` generate LUA runtime error
 - `cava` and `waybar` cava colors weren't syncing with wallpaper
@@ -127,10 +179,6 @@
   - `overview` has not been updated in this project for a long time
 
 ## Changed:
-
-- `shadow range` changed to `2` from `3`
-
----
 
 ## v2.3.25
 
