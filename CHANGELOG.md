@@ -1,5 +1,28 @@
 # Changelog — KoolDots
 
+## v2.3.26.2
+
+## Fixed:
+
+- Improved handling of RO symlinks in NixOS
+- Hypridle updated for LUA commands
+- Thanks to @goldyfruit
+  - He found four issues and filed them, including how to fix
+    - `LuaAutoReload` did not stop when it receives SIGTERM on the polling path.
+    - `MonitorProfile` overwrote `monitors.lua`
+    - Changes to workspace layouts wasn't persistent
+    - Animation selected not loading in LUA config
+    - Also some animation files had invalid settings
+- KB layout settings not set in `user_settings.lua`
+  - Added: Prompts for KB variant and model
+
+## Added:
+
+- More examples in `.config/hypr/UserConfigs/user_keybinds.lua`
+  - Showing how to add or rebind keybinds
+
+---
+
 ## v2.3.26.1
 
 ## Added:
@@ -43,13 +66,43 @@
 
 ## Fixed:
 
-- KoolDots update notifier
-  - Redid entire script from scratch
-- Toggle in/out of specialworkspace didn't work
-  - You could toggle in but not exit
+- Added preservation code for `UserConfigs`
+  - Fixed migration code was another path to overwrite user files
+- `copy.sh` was overwritting `UserConfigs/monitor.lua`
+- On upgrade waybar config/style got reset (fix 2)
+  -Eliminated possible race condition in `awww-daemon`
+- Thanks to: @hyperion-ak for the fixes
+- Removed dead code from `initial-boot.sh`
+  - Thanks to @silesai
+- LCD keyboard brightness controls
+- Gestures fix 2
+  - `copy.sh` was overwritting gesture changes
+- Race condition in `awww-daemon` caused it to crash
+  - Changed `break 2` to just `break`
+  - Fix is applied with `copy.sh` on updates
+- Some users reported only light mode
+  - Fixed `LightDark.sh` script
+- Improved handling of user started apps
+- `startup.lua` wasn't calling `LuaAutoReload.sh`
+- Fixed user defaults
+  - Setting `nautilus` as file manager still called Thunar
+- Couldn't exit specialworkspace
 - Waybar config getting changed on each boot
-- Gestures in LUA configs
+- Gestures in LUA workflow
 - Fixed Quick settings not opening system keybinds file
+
+## Added:
+
+- Added keybinds to increase/decrease brightness
+  - `CTRL+ALT+`` the `-/+` keys
+- `.luarc.json` file to the LUA subdirs
+  - Some editors will report `undefined global hl`
+
+## Updated:
+
+- Re-added laptop keybinds for brightness
+
+---
 
 ## v2.3.26
 
@@ -94,7 +147,11 @@
 
 ## Fixed:
 
-- Edit system binds resolved to wrong file
+- On upgrade waybar config/style got reset (fix 2)
+- Eliminated possible race condition in `awww-daemon`
+  - Thanks to: @hyperion-ak for the fixes
+- Removed dead code from `initial-boot.sh`
+  - Thanks to @silesai
 - Returning from `game mode` didn't restore user decoration values
 - `remove master` in `master layout` generate LUA runtime error
 - `cava` and `waybar` cava colors weren't syncing with wallpaper

@@ -21,7 +21,7 @@
 #   - Backup/restore helpers (in scripts/lib_backup.sh).
 #   - App enablement/editor selection (lib_apps.sh).
 #   - Copy phases (lib_copy.sh):
-#       * Part 1: fastfetch/kitty/rofi/swaync (prompted replace).
+#       * Part 1: fastfetch/kitty/swaync (prompted replace); rofi backup & empty dir.
 #       * Waybar special handling (symlinks, configs/styles restore).
 #       * Part 2: other configs (btop, cava, hypr, etc.) + ghostty/wezterm installs.
 #   - UserConfigs/UserScripts and hypr file restores.
@@ -148,14 +148,28 @@ if ! declare -f seed_upgrade_userconfigs >/dev/null 2>&1; then
   }
 fi
 if ! declare -f capture_upgrade_runtime_selection_state >/dev/null 2>&1; then
-  capture_upgrade_runtime_selection_state() { :; }
+  capture_upgrade_runtime_selection_state() {
+    local cfg_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+    local waybar_dir="$cfg_home/waybar"
+    KOOLDOTS_SAVED_WAYBAR_CONFIG=""
+    KOOLDOTS_SAVED_WAYBAR_STYLE=""
+
+    if [ -L "$waybar_dir/config" ]; then
+      KOOLDOTS_SAVED_WAYBAR_CONFIG="$(basename "$(readlink "$waybar_dir/config")")"
+    fi
+    if [ -L "$waybar_dir/style.css" ]; then
+      KOOLDOTS_SAVED_WAYBAR_STYLE="$(basename "$(readlink "$waybar_dir/style.css")")"
+    fi
+    export KOOLDOTS_SAVED_WAYBAR_CONFIG KOOLDOTS_SAVED_WAYBAR_STYLE
+  }
 fi
 if ! declare -f capture_runtime_personal_state >/dev/null 2>&1; then
   capture_runtime_personal_state() {
     local log="${1:-/dev/null}"
     local cfg_home="${XDG_CONFIG_HOME:-$HOME/.config}"
     local cache_home="${XDG_CACHE_HOME:-$HOME/.cache}"
-    local rofi_link="$cfg_home/rofi/.current_wallpaper"
+    local rofi_link="$cfg_home/hypr/rofi/.current_wallpaper"
+    local legacy_rofi_link="$cfg_home/rofi/.current_wallpaper"
     local wallpaper_current="$cfg_home/hypr/wallpaper_effects/.wallpaper_current"
     local state_dir="$cache_home/kooldots-copy"
     local state_file="$state_dir/wallpaper-current-$$"
@@ -175,6 +189,8 @@ if ! declare -f capture_runtime_personal_state >/dev/null 2>&1; then
 
     if [ -L "$rofi_link" ]; then
       resolved="$(readlink -f "$rofi_link" 2>/dev/null || true)"
+    elif [ -L "$legacy_rofi_link" ]; then
+      resolved="$(readlink -f "$legacy_rofi_link" 2>/dev/null || true)"
     fi
 
     if [ -n "$resolved" ] && [ -f "$resolved" ]; then
@@ -196,14 +212,46 @@ if ! declare -f preserve_custom_sddm_configs >/dev/null 2>&1; then
   preserve_custom_sddm_configs() { :; }
 fi
 if ! declare -f restore_upgrade_runtime_selection_state >/dev/null 2>&1; then
-  restore_upgrade_runtime_selection_state() { :; }
+  restore_upgrade_runtime_selection_state() {
+    local log="${1:-/dev/null}"
+    local cfg_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+    local waybar_dir="$cfg_home/waybar"
+    local config_link="$waybar_dir/config"
+    local style_link="$waybar_dir/style.css"
+
+    if [ -n "${KOOLDOTS_SAVED_WAYBAR_CONFIG:-}" ] && [ -f "$waybar_dir/configs/$KOOLDOTS_SAVED_WAYBAR_CONFIG" ]; then
+      rm -f "$config_link"
+      ln -sf "$waybar_dir/configs/$KOOLDOTS_SAVED_WAYBAR_CONFIG" "$config_link" 2>&1 | tee -a "$log"
+      echo "${OK} Restored waybar layout config: $KOOLDOTS_SAVED_WAYBAR_CONFIG" 2>&1 | tee -a "$log"
+    elif [ ! -e "$config_link" ]; then
+      local chassis
+      chassis="$(detect_waybar_config 2>/dev/null || echo "desktop")"
+      local default_target="$waybar_config"
+      [ "$chassis" = "laptop" ] && default_target="$waybar_config_laptop"
+      if [ -f "$default_target" ]; then
+        rm -f "$config_link"
+        ln -sf "$default_target" "$config_link" 2>&1 | tee -a "$log"
+      fi
+    fi
+
+    if [ -n "${KOOLDOTS_SAVED_WAYBAR_STYLE:-}" ] && [ -f "$waybar_dir/style/$KOOLDOTS_SAVED_WAYBAR_STYLE" ]; then
+      rm -f "$style_link"
+      ln -sf "$waybar_dir/style/$KOOLDOTS_SAVED_WAYBAR_STYLE" "$style_link" 2>&1 | tee -a "$log"
+      echo "${OK} Restored waybar style: $KOOLDOTS_SAVED_WAYBAR_STYLE" 2>&1 | tee -a "$log"
+    elif [ ! -e "$style_link" ]; then
+      if [ -f "$waybar_style" ]; then
+        rm -f "$style_link"
+        ln -sf "$waybar_style" "$style_link" 2>&1 | tee -a "$log"
+      fi
+    fi
+  }
 fi
 if ! declare -f restore_runtime_personal_state >/dev/null 2>&1; then
   restore_runtime_personal_state() {
     local log="${1:-/dev/null}"
     local cfg_home="${XDG_CONFIG_HOME:-$HOME/.config}"
     local wallpaper_current="$cfg_home/hypr/wallpaper_effects/.wallpaper_current"
-    local rofi_link="$cfg_home/rofi/.current_wallpaper"
+    local rofi_link="$cfg_home/hypr/rofi/.current_wallpaper"
     local state_file="${KOOLDOTS_RUNTIME_WALLPAPER_STATE_FILE:-}"
     local source_path="${KOOLDOTS_RUNTIME_WALLPAPER_SOURCE:-}"
 
@@ -608,7 +656,9 @@ fi
 printf "\n%.0s" {1..1}
 
 layout=$(prompt_detect_layout)
-prompt_keyboard_layout "$layout" "$LOG"
+variant=$(prompt_detect_variant)
+model=$(prompt_detect_model)
+prompt_keyboard_layout "$layout" "$variant" "$model" "$LOG"
 
 enable_asusctl "$LOG"
 enable_blueman "$LOG"
@@ -654,7 +704,7 @@ if [ "$resolution" == "< 1440p" ]; then
   fi
 
   # rofi fonts reduction
-  rofi_config_file="$DOTFILES_DIR/config/rofi/0-shared-fonts.rasi"
+  rofi_config_file="$DOTFILES_DIR/config/hypr/rofi/0-shared-fonts.rasi"
   if [ -f "$rofi_config_file" ]; then
     sed -i '/element-text {/,/}/s/[[:space:]]*font: "JetBrainsMono Nerd Font SemiBold 13"/font: "JetBrainsMono Nerd Font SemiBold 11"/' "$rofi_config_file" 2>&1 | tee -a "$LOG"
     sed -i '/configuration {/,/}/s/[[:space:]]*font: "JetBrainsMono Nerd Font SemiBold 15"/font: "JetBrainsMono Nerd Font SemiBold 13"/' "$rofi_config_file" 2>&1 | tee -a "$LOG"
@@ -697,7 +747,7 @@ capture_runtime_personal_state "$LOG"
 printf "${INFO} - copying dotfiles ${SKY_BLUE}first${RESET} part\n"
 copy_phase1 "$LOG" "$RUN_MODE"
 printf "\n%.0s" {1..1}
-copy_waybar "$LOG"
+copy_waybar "$LOG" "$RUN_MODE"
 printf "\n%.0s" {1..1}
 printf "${INFO} - Copying dotfiles ${SKY_BLUE}second${RESET} part\n"
 copy_phase2 "$LOG"
@@ -795,24 +845,28 @@ if command -v ags >/dev/null 2>&1; then
       cp -r "$DOTFILES_DIR/config/ags/" "$DIRPATH_AGS" 2>&1 | tee -a "$LOG"
     fi
   else
-    read -p "${CAT} Do you want to overwrite your existing ${YELLOW}ags${RESET} config? [y/N] " answer_ags
-    case "$answer_ags" in
-    [Yy]*)
-      BACKUP_DIR=$(get_backup_dirname)
-      mv "$DIRPATH_AGS" "$DIRPATH_AGS-backup-$BACKUP_DIR" 2>&1 | tee -a "$LOG"
-      echo -e "${NOTE} - Backed up ags config to $DIRPATH_AGS-backup-$BACKUP_DIR"
+    if [ "$EXPRESS_MODE" -eq 1 ]; then
+      echo "${NOTE} Express mode: keeping existing ags config." 2>&1 | tee -a "$LOG"
+    else
+      read -p "${CAT} Do you want to overwrite your existing ${YELLOW}ags${RESET} config? [y/N] " answer_ags
+      case "$answer_ags" in
+      [Yy]*)
+        BACKUP_DIR=$(get_backup_dirname)
+        mv "$DIRPATH_AGS" "$DIRPATH_AGS-backup-$BACKUP_DIR" 2>&1 | tee -a "$LOG"
+        echo -e "${NOTE} - Backed up ags config to $DIRPATH_AGS-backup-$BACKUP_DIR"
 
-      if cp -r "$DOTFILES_DIR/config/ags/" "$DIRPATH_AGS" 2>&1 | tee -a "$LOG"; then
-        echo "${OK} - ${YELLOW}ags configs${RESET} overwritten successfully."
-      else
-        echo "${ERROR} - Failed to copy ${YELLOW}ags${RESET} config."
-        exit 1
-      fi
-      ;;
-    *)
-      echo "${NOTE} - Skipping overwrite of ags config."
-      ;;
-    esac
+        if cp -r "$DOTFILES_DIR/config/ags/" "$DIRPATH_AGS" 2>&1 | tee -a "$LOG"; then
+          echo "${OK} - ${YELLOW}ags configs${RESET} overwritten successfully."
+        else
+          echo "${ERROR} - Failed to copy ${YELLOW}ags${RESET} config."
+          exit 1
+        fi
+        ;;
+      *)
+        echo "${NOTE} - Skipping overwrite of ags config."
+        ;;
+      esac
+    fi
   fi
 fi
 
@@ -839,27 +893,31 @@ else
     rm "$DIRPATH_QS/shell.qml"
   fi
 
-  read -p "${CAT} Do you want to overwrite your existing ${YELLOW}quickshell${RESET} config? [y/N] " answer_qs
-  case "$answer_qs" in
-  [Yy]*)
-    BACKUP_DIR=$(get_backup_dirname)
-    mv "$DIRPATH_QS" "$DIRPATH_QS-backup-$BACKUP_DIR" 2>&1 | tee -a "$LOG"
-    echo -e "${NOTE} - Backed up quickshell to $DIRPATH_QS-backup-$BACKUP_DIR"
+  if [ "$EXPRESS_MODE" -eq 1 ]; then
+    echo "${NOTE} Express mode: keeping existing quickshell config." 2>&1 | tee -a "$LOG"
+  else
+    read -p "${CAT} Do you want to overwrite your existing ${YELLOW}quickshell${RESET} config? [y/N] " answer_qs
+    case "$answer_qs" in
+    [Yy]*)
+      BACKUP_DIR=$(get_backup_dirname)
+      mv "$DIRPATH_QS" "$DIRPATH_QS-backup-$BACKUP_DIR" 2>&1 | tee -a "$LOG"
+      echo -e "${NOTE} - Backed up quickshell to $DIRPATH_QS-backup-$BACKUP_DIR"
 
-    cp -r "$DOTFILES_DIR/config/quickshell/" "$DIRPATH_QS" 2>&1 | tee -a "$LOG"
-    if [ $? -eq 0 ]; then
-      echo "${OK} - ${YELLOW}quickshell${RESET} overwritten successfully."
-      # Remove default shell.qml from new copy to enable overview detection
-      rm -f "$DIRPATH_QS/shell.qml" 2>&1 | tee -a "$LOG"
-    else
-      echo "${ERROR} - Failed to copy ${YELLOW}quickshell${RESET} config."
-      exit 1
-    fi
-    ;;
-  *)
-    echo "${NOTE} - Skipping overwrite of quickshell config."
-    ;;
-  esac
+      cp -r "$DOTFILES_DIR/config/quickshell/" "$DIRPATH_QS" 2>&1 | tee -a "$LOG"
+      if [ $? -eq 0 ]; then
+        echo "${OK} - ${YELLOW}quickshell${RESET} overwritten successfully."
+        # Remove default shell.qml from new copy to enable overview detection
+        rm -f "$DIRPATH_QS/shell.qml" 2>&1 | tee -a "$LOG"
+      else
+        echo "${ERROR} - Failed to copy ${YELLOW}quickshell${RESET} config."
+        exit 1
+      fi
+      ;;
+    *)
+      echo "${NOTE} - Skipping overwrite of quickshell config."
+      ;;
+    esac
+  fi
 fi
 
 # Ensure overview and qs-hyprview subdirectories exist
@@ -904,6 +962,9 @@ restore_runtime_personal_state "$LOG"
 if [ "$RUN_MODE" = "upgrade" ] || [ "$RUN_MODE" = "express" ]; then
   migrate_hypr_to_lua_if_needed "$LOG" "${MIGRATE_HYPR_TO_LUA:-0}" || true
 fi
+if [ -n "${KOOLDOTS_SELECTED_KB_LAYOUT:-}" ]; then
+  set_keyboard_layout_configs "$KOOLDOTS_SELECTED_KB_LAYOUT" "${KOOLDOTS_SELECTED_KB_VARIANT:-}" "${KOOLDOTS_SELECTED_KB_MODEL:-}" "$LOG"
+fi
 printf "\n%.0s" {1..1}
 printf "\n%.0s" {1..1}
 
@@ -913,14 +974,14 @@ rofi_DIR="$HOME/.local/share/rofi/themes"
 if [ ! -d "$rofi_DIR" ]; then
   mkdir -p "$rofi_DIR"
 fi
-if [ -d "${XDG_CONFIG_HOME:-$HOME/.config}/rofi/themes" ]; then
-  if [ -z "$(ls -A ${XDG_CONFIG_HOME:-$HOME/.config}/rofi/themes)" ]; then
-    echo '/* Dummy Rofi theme */' >"${XDG_CONFIG_HOME:-$HOME/.config}/rofi/themes/dummy.rasi"
+if [ -d "${XDG_CONFIG_HOME:-$HOME/.config}/hypr/rofi/themes" ]; then
+  if [ -z "$(ls -A ${XDG_CONFIG_HOME:-$HOME/.config}/hypr/rofi/themes)" ]; then
+    echo '/* Dummy Rofi theme */' >"${XDG_CONFIG_HOME:-$HOME/.config}/hypr/rofi/themes/dummy.rasi"
   fi
-  ln -snf "${XDG_CONFIG_HOME:-$HOME/.config}/rofi/themes/"* "$HOME/.local/share/rofi/themes/"
+  ln -snf "${XDG_CONFIG_HOME:-$HOME/.config}/hypr/rofi/themes/"* "$HOME/.local/share/rofi/themes/"
   # Delete the dummy file if it was created
-  if [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/rofi/themes/dummy.rasi" ]; then
-    rm "${XDG_CONFIG_HOME:-$HOME/.config}/rofi/themes/dummy.rasi"
+  if [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/hypr/rofi/themes/dummy.rasi" ]; then
+    rm "${XDG_CONFIG_HOME:-$HOME/.config}/hypr/rofi/themes/dummy.rasi"
   fi
 fi
 
@@ -959,6 +1020,11 @@ if command -v systemctl >/dev/null 2>&1; then
     else
       echo "${NOTE} Polkit agent already running. Skipping hyprpolkitagent enable/start." | tee -a "$LOG"
     fi
+  fi
+  # Mask waybar.service in user scope to prevent duplicate bars on distros (e.g. Debian/Ubuntu/Zorin) that enable it globally
+  if systemctl --user list-unit-files 2>/dev/null | grep -q '^waybar\.service'; then
+    systemctl --user mask waybar.service 2>&1 | tee -a "$LOG" || true
+    systemctl --user stop waybar.service 2>&1 | tee -a "$LOG" || true
   fi
 fi
 

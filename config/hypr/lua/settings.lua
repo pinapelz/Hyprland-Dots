@@ -214,9 +214,9 @@ hl.config({
   cursor = {
     sync_gsettings_theme = true,
 <<<<<<< HEAD
-    no_hardware_cursors =      0,
-=======
     no_hardware_cursors =       0,
+=======
+    no_hardware_cursors =        0,
 >>>>>>> upstream/main
     enable_hyprcursor = true,
     warp_on_change_workspace = 2,
